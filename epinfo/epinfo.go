@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/html" //for URL formatting
 )
 
-// EpisodeInfo struct holds info about a episode
+// EpisodeInfo struct holds info about an episode
 type EpisodeInfo struct {
 	Label  string
 	Series string
@@ -37,7 +37,7 @@ func bodyNode(url string) *html.Node {
 }
 
 // SeriesEpisodes return all episodes found on a given url
-func SeriesEpisodes(pageURL string) []EpisodeInfo {
+func SeriesEpisodes(pageURL string, ch chan []EpisodeInfo) {
 	pageVisited := make(map[string]bool)
 	pageVisited[pageURL] = false
 	body := bodyNode(pageURL)
@@ -80,7 +80,7 @@ func SeriesEpisodes(pageURL string) []EpisodeInfo {
 			f(body)
 		}
 	}
-	return episodes
+	ch <- episodes
 }
 
 // SeriesURLs returns all links to series web pages
@@ -124,8 +124,9 @@ func SeriesURLs(pageURL string) map[string]string {
 	return series
 }
 
-// AllEpisodesInfo returns an array of all episodes of a given BBC iPlayer URL.
-// Sorted from first to last.
+// AllEpisodesInfo returns a map of all series, if exist, and their episodes of a given BBC iPlayer URL.
+// There is no guarantee that the episodes are sorted. Fetched from top to bottom of the page.
+// It depends on the BBC iPlayer web page how the episodes are presented.
 func AllEpisodesInfo(pageURL string) map[string][]EpisodeInfo {
 	urlSuffixes := []string{"?page=", "?seriesId="}
 	for _, s := range urlSuffixes {
@@ -135,18 +136,17 @@ func AllEpisodesInfo(pageURL string) map[string][]EpisodeInfo {
 		}
 	}
 	foundSeriesURLs := SeriesURLs(pageURL)
-	allSeriesEpisodes := make(map[string][]EpisodeInfo)
 	if len(foundSeriesURLs) == 0 {
 		foundSeriesURLs["none"] = pageURL
 	}
-	for seriesName, sURL := range foundSeriesURLs {
-		allSeriesEpisodes[seriesName] = SeriesEpisodes(sURL)
+	ch := make(chan []EpisodeInfo, len(foundSeriesURLs))
+	for _, sURL := range foundSeriesURLs {
+		go SeriesEpisodes(sURL, ch)
 	}
-	defaultSeriesEP, ok := allSeriesEpisodes["none"]
-	if ok && defaultSeriesEP[0].Series != "none" {
-		ep := defaultSeriesEP[0]
-		allSeriesEpisodes[ep.Series] = defaultSeriesEP
-		delete(allSeriesEpisodes, "none")
+	allSeriesEpisodes := make(map[string][]EpisodeInfo)
+	for range foundSeriesURLs {
+		epArr := <-ch
+		allSeriesEpisodes[epArr[0].Series] = epArr
 	}
 	return allSeriesEpisodes
 }

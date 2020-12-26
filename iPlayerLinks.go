@@ -10,13 +10,13 @@ import (
 )
 
 func main() {
-	urlPtr := flag.String("url", "", "iPlayer URL with all episodes")
+	urlPtr := flag.String("url", "", "-url=[iPlayer URL with episodes]")
 	flag.Parse()
 	if *urlPtr == "" {
-		log.Fatal("You must provide iPlayer URL with all episodes. I got: ", *urlPtr)
+		log.Fatal("usage: ./iplayer -url=[iPlayer URL with episodes]")
 	}
-	allEP := epinfo.AllEpisodesInfo(*urlPtr)
-	for k, v := range allEP {
+	allSeries := epinfo.AllEpisodesInfo(*urlPtr)
+	for k, v := range allSeries {
 		fmt.Println(strings.Repeat("*", 80))
 		fmt.Println(k, ": ")
 		for _, epi := range v {

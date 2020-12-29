@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 
@@ -33,27 +35,47 @@ func main() {
 		allSeries := widget.NewMultiLineEntry()
 		statusBar := widget.NewHBox(widget.NewLabel("No. Of Series:"), &ipl.noSeries,
 			layout.NewSpacer(), widget.NewLabel("No. Of All Ep:"), &ipl.noEpisodes)
-		button := widget.NewButton("Get All Links", func() {
+		tvShow := ""
+		outString := ""
+		saveLinksButton := widget.NewButton("Save All Links To File", func() {})
+		f := func() {
+			f, err := os.Create(tvShow + ".txt")
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			defer f.Close()
+
+			_, err2 := f.WriteString(outString)
+
+			if err2 != nil {
+				log.Fatal(err2)
+			}
+			saveLinksButton.Disable()
+			saveLinksButton.SetText("Saved")
+		}
+		saveLinksButton.OnTapped = f
+		saveLinksButton.Disable()
+		getLinksButton := widget.NewButton("Get All Links", func() {
 			ipl.sourceURL = sourceURL.Text
 			ipl.allSeries = epinfo.AllEpisodesInfo(ipl.sourceURL)
-			outString := ""
 			epCounter := 0
 			for _, v := range ipl.allSeries {
-				// outString += k + "\n"
+				tvShow = *v[0].TvShow
 				for _, epi := range v {
-					// outString += "\nSeries: " + epi.Series
-					// outString += "\nURL: " + epi.URL
 					outString += epi.URL + "\n"
 					epCounter++
-					// outString += "\nLabel: " + epi.Label
 				}
 			}
 			allSeries.SetText(outString)
 			ipl.noSeries.SetText(strconv.FormatInt(int64(len(ipl.allSeries)), 10))
 			ipl.noEpisodes.SetText(strconv.FormatInt(int64(epCounter), 10))
+			saveLinksButton.SetText("Save All Links To File")
+			saveLinksButton.Enable()
 		})
 		allSeriesContainer := container.NewScroll(allSeries)
-		topContainer := container.NewVBox(container.NewScroll(sourceURL), button)
+		topContainer := container.NewVBox(container.NewScroll(sourceURL), getLinksButton, saveLinksButton)
 		content := container.NewBorder(topContainer, statusBar, nil, nil, allSeriesContainer)
 		ipl.window.Resize(fyne.NewSize(500, 500))
 		ipl.window.CenterOnScreen()

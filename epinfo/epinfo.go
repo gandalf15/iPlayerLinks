@@ -14,9 +14,8 @@ import (
 
 // EpisodeInfo struct holds info about an episode
 type EpisodeInfo struct {
-	Label  string
-	Series string
-	URL    string
+	TvShow             *string
+	Label, Series, URL string
 }
 
 func bodyNode(url string) *html.Node {
@@ -39,11 +38,60 @@ func bodyNode(url string) *html.Node {
 // SeriesEpisodes return all episodes found on a given url
 func SeriesEpisodes(pageURL string, ch chan []EpisodeInfo) {
 	pageVisited := make(map[string]bool)
-	pageVisited[pageURL] = false
+	pageVisited[pageURL] = true
 	body := bodyNode(pageURL)
 	episodes := []EpisodeInfo{}
+	tvShow := ""
+	tvShowFound := false
+	var f func(*html.Node)
+	// Depth-first order processing
+	f = func(node *html.Node) {
+		if node.Type == html.ElementNode {
+			if node.Data == "a" {
+				href := ""
+				label := ""
+				series := "none"
+				for _, attr := range node.Attr {
+					switch attr.Key {
+					case "href":
+						if strings.Contains(attr.Val, "/iplayer/episode/") {
+							href = "https://www.bbc.co.uk" + attr.Val
+						} else if strings.Contains(attr.Val, "?page=") {
+							i := strings.LastIndex(attr.Val, "?page=")
+							_, ok := pageVisited[pageURL+attr.Val[i:]]
+							if !ok {
+								pageVisited[pageURL+attr.Val[i:]] = false
+							}
+						}
+					case "aria-label":
+						label = attr.Val
+					case "data-bbc-container":
+						series = attr.Val
+					}
+				}
+				if href != "" && label != "" && series != "contextual-cta" {
+					newEpisode := EpisodeInfo{&tvShow, label, series, href}
+					episodes = append(episodes, newEpisode)
+				}
+			} else if node.Data == "h1" {
+				for _, attr := range node.Attr {
+					if !tvShowFound {
+						if attr.Key == "class" && strings.Contains(attr.Val, "title") {
+							tvShow = node.FirstChild.Data
+						}
+					}
+				}
+			}
+		}
+		for c := node.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+	f(body)
+
 	for url, visited := range pageVisited {
 		if !visited {
+			body := bodyNode(url)
 			var f func(*html.Node)
 			// Depth-first order processing
 			f = func(node *html.Node) {
@@ -57,9 +105,10 @@ func SeriesEpisodes(pageURL string, ch chan []EpisodeInfo) {
 							if strings.Contains(attr.Val, "/iplayer/episode/") {
 								href = "https://www.bbc.co.uk" + attr.Val
 							} else if strings.Contains(attr.Val, "?page=") {
-								_, ok := pageVisited[url+attr.Val]
+								i := strings.LastIndex(attr.Val, "?page=")
+								_, ok := pageVisited[url+attr.Val[i:]]
 								if !ok {
-									pageVisited[url+attr.Val] = false
+									pageVisited[url+attr.Val[i:]] = false
 								}
 							}
 						case "aria-label":
@@ -69,7 +118,7 @@ func SeriesEpisodes(pageURL string, ch chan []EpisodeInfo) {
 						}
 					}
 					if href != "" && label != "" && series != "contextual-cta" {
-						newEpisode := EpisodeInfo{label, series, href}
+						newEpisode := EpisodeInfo{&tvShow, label, series, href}
 						episodes = append(episodes, newEpisode)
 					}
 				}

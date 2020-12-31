@@ -14,8 +14,9 @@ import (
 
 // EpisodeInfo struct holds info about an episode
 type EpisodeInfo struct {
-	TvShow             *string
-	Label, Series, URL string
+	TvShow                   *string
+	Label, Series, URL       string
+	AudioDescribed, SignLang bool
 }
 
 func bodyNode(url string) *html.Node {
@@ -36,7 +37,7 @@ func bodyNode(url string) *html.Node {
 }
 
 // SeriesEpisodes return all episodes found on a given url
-func SeriesEpisodes(pageURL string, ch chan []EpisodeInfo) {
+func SeriesEpisodes(pageURL string, audioDescribed bool, signLang bool, ch chan []EpisodeInfo) {
 	pageVisited := make(map[string]bool)
 	pageVisited[pageURL] = true
 	body := bodyNode(pageURL)
@@ -70,8 +71,21 @@ func SeriesEpisodes(pageURL string, ch chan []EpisodeInfo) {
 					}
 				}
 				if href != "" && label != "" && series != "contextual-cta" {
-					newEpisode := EpisodeInfo{&tvShow, label, series, href}
-					episodes = append(episodes, newEpisode)
+					if strings.Contains(href, "/ad/") {
+						if audioDescribed {
+							newEpisode := EpisodeInfo{&tvShow, label, series, href, true, false}
+							episodes = append(episodes, newEpisode)
+						}
+					} else if strings.Contains(href, "/sign/") {
+						if signLang {
+							newEpisode := EpisodeInfo{&tvShow, label, series, href, false, true}
+							episodes = append(episodes, newEpisode)
+						}
+					} else {
+						newEpisode := EpisodeInfo{&tvShow, label, series, href, false, false}
+						episodes = append(episodes, newEpisode)
+					}
+
 				}
 			} else if node.Data == "h1" {
 				for _, attr := range node.Attr {
@@ -118,8 +132,20 @@ func SeriesEpisodes(pageURL string, ch chan []EpisodeInfo) {
 						}
 					}
 					if href != "" && label != "" && series != "contextual-cta" {
-						newEpisode := EpisodeInfo{&tvShow, label, series, href}
-						episodes = append(episodes, newEpisode)
+						if strings.Contains(href, "/ad/") {
+							if audioDescribed {
+								newEpisode := EpisodeInfo{&tvShow, label, series, href, true, false}
+								episodes = append(episodes, newEpisode)
+							}
+						} else if strings.Contains(href, "/sign/") {
+							if signLang {
+								newEpisode := EpisodeInfo{&tvShow, label, series, href, false, true}
+								episodes = append(episodes, newEpisode)
+							}
+						} else {
+							newEpisode := EpisodeInfo{&tvShow, label, series, href, false, false}
+							episodes = append(episodes, newEpisode)
+						}
 					}
 				}
 				for c := node.FirstChild; c != nil; c = c.NextSibling {
@@ -176,7 +202,9 @@ func SeriesURLs(pageURL string) map[string]string {
 // AllEpisodesInfo returns a map of all series, if exist, and their episodes of a given BBC iPlayer URL.
 // There is no guarantee that the episodes are sorted. Fetched from top to bottom of the page.
 // It depends on the BBC iPlayer web page how the episodes are presented.
-func AllEpisodesInfo(pageURL string) map[string][]EpisodeInfo {
+// signLang set true if you want to include sign language links.
+// audioDescribed set true if you want to include audio descriabed links.
+func AllEpisodesInfo(pageURL string, audioDescribed bool, signLang bool) map[string][]EpisodeInfo {
 	urlSuffixes := []string{"?page=", "?seriesId="}
 	for _, s := range urlSuffixes {
 		suffixIndex := strings.LastIndex(pageURL, s)
@@ -190,12 +218,14 @@ func AllEpisodesInfo(pageURL string) map[string][]EpisodeInfo {
 	}
 	ch := make(chan []EpisodeInfo, len(foundSeriesURLs))
 	for _, sURL := range foundSeriesURLs {
-		go SeriesEpisodes(sURL, ch)
+		go SeriesEpisodes(sURL, audioDescribed, signLang, ch)
 	}
 	allSeriesEpisodes := make(map[string][]EpisodeInfo)
 	for range foundSeriesURLs {
 		epArr := <-ch
-		allSeriesEpisodes[epArr[0].Series] = epArr
+		if len(epArr) > 0 {
+			allSeriesEpisodes[epArr[0].Series] = epArr
+		}
 	}
 	return allSeriesEpisodes
 }

@@ -154,9 +154,10 @@ func (iplGUI *IPlayerLinksGUI) downloadAllEpisodes() {
 			}
 			entry := widget.NewMultiLineEntry()
 			entry.SetReadOnly(true)
-			entryContainer := container.NewScroll(entry)
-			d := dialog.NewCustom("Downloading", "Cancel", entryContainer, iplGUI.window)
-			entryContainer.SetMinSize(fyne.NewSize(600, 400))
+			scrollCont := container.NewScroll(entry)
+			scrollCont.SetMinSize(fyne.NewSize(600, 400))
+			downloadingCont := container.NewVBox(widget.NewProgressBarInfinite(), scrollCont)
+			d := dialog.NewCustom("Downloading", "Cancel", downloadingCont, iplGUI.window)
 			d.SetOnClosed(f)
 			d.Show()
 			textOut := []string{}
@@ -170,7 +171,7 @@ func (iplGUI *IPlayerLinksGUI) downloadAllEpisodes() {
 				}
 				textOut = append(textOut, newText)
 				entry.SetText(strings.Join(textOut, ""))
-				entryContainer.ScrollToBottom()
+				scrollCont.ScrollToBottom()
 			}
 			d.Hide()
 		}()
@@ -181,9 +182,9 @@ func (iplGUI *IPlayerLinksGUI) downloadAllEpisodes() {
 		}()
 
 		if err := ydl.Start(); nil != err {
-			log.Fatalf("Error starting program: %s, %s", ydl.Path, err.Error())
-			errorDialog := dialog.NewError(fmt.Errorf("Error running the command: '%s' \nError: '%s'",
-				ydl.String(), err), iplGUI.window)
+			log.Printf("Install youtube-dl first. Failed to start: %s, %s", ydl.Path, err.Error())
+			errorDialog := dialog.NewError(fmt.Errorf("Install youtube-dl first. Failed to start: %s, %s",
+				ydl.Path, err.Error()), iplGUI.window)
 			errorDialog.Show()
 		}
 		go func() {

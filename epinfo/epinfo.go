@@ -36,7 +36,8 @@ func bodyNode(url string) *html.Node {
 	return body
 }
 
-// SeriesEpisodes return all episodes found on a given url
+// SeriesEpisodes return all episodes found on a given url.
+// You can select if you want to include audio described and sign language links.
 func SeriesEpisodes(pageURL string, audioDescribed bool, signLang bool, ch chan []EpisodeInfo) {
 	pageVisited := make(map[string]bool)
 	pageVisited[pageURL] = true

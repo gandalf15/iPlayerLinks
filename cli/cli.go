@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/gandalf15/iplayer/epinfo"
+	"github.com/gandalf15/iplayerlinks/epinfo"
 )
 
 // Cli runs command line interface

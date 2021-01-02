@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/gandalf15/iplayer/cli"
-	"github.com/gandalf15/iplayer/gui"
+	"github.com/gandalf15/iplayerlinks/cli"
+	"github.com/gandalf15/iplayerlinks/gui"
 )
 
 func main() {
